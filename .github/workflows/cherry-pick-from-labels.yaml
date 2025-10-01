@@ -3,6 +3,10 @@ name: Cherry-pick a PR using labels
 on:
   workflow_call:
     inputs:
+      workflow-ref:
+        description: "The version of this repo to use the composite action. Should match the version of the call to this reusable workflow."
+        required: true
+        type: string
       label-added:
         description: "Create the labels in this repository"
         required: true
@@ -79,13 +83,6 @@ jobs:
           LABELS: ${{ inputs.all-labels-json }}
 
       - if: ${{ steps.detect.outputs.target-branch != '' }}
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-        with:
-          token: ${{ secrets.token }}
-          persist-credentials: true
-          fetch-depth: 0
-
-      - if: ${{ steps.detect.outputs.target-branch != '' }}
         run: |
           git config --global user.email "$EMAIL"
           git config --global user.name "$NAME"
@@ -94,18 +91,35 @@ jobs:
           NAME: ${{ inputs.git-user-name }}
 
       - if: ${{ steps.detect.outputs.target-branch != '' }}
-        uses: ./.github/actions/backport
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          token: ${{ secrets.token }}
+          persist-credentials: true
+          fetch-depth: 0
+          path: target
+
+      - if: ${{ steps.detect.outputs.target-branch != '' }}
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          repository: "tomleb/rancher-cherry-pick-action"
+          ref: "${{ inputs.workflow-ref }}"
+          path: cherry-pick-action
+
+      - if: ${{ steps.detect.outputs.target-branch != '' }}
+        uses: ./cherry-pick-action/.github/actions/backport
         id: backport
         with:
           pull-request: ${{ inputs.pr-number }}
           target-branch: ${{ steps.detect.outputs.target-branch }}
           repository: ${{ github.repository }}
           is-draft: false
+          target-path: target
         env:
           GH_TOKEN: ${{ secrets.token }}
 
       - if: ${{ steps.detect.outputs.target-branch != '' }}
         run: |
+          cd target
           gh pr edit $PR_NUMBER -R "$REPO" --add-label "cherry-pick-done/$TARGET"
           gh pr comment $PR_NUMBER -R "$REPO" --body "Cherry-pick requested from @$GITHUB_ACTOR. Created the following cherry-pick PR: $BACKPORT_PR_URL. See run for more details at: $RUN_URL"
         env:
