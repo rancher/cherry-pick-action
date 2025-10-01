@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          branches=$(gh api repos/$REPO/branches | jq -r '.[].name')
+          branches=$(gh api --paginate repos/$REPO/branches | jq -r '.[].name')
 
           for branch in $branches; do
             if ! echo "$branch" | grep -Eq "$REGEX"; then
