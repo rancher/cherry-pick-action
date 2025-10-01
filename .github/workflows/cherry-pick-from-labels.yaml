@@ -19,14 +19,6 @@ on:
         description: ""
         required: true
         type: string
-      git-user-email:
-        description: ""
-        required: true
-        type: string
-      git-user-name:
-        description: ""
-        required: true
-        type: string
       skip-membership-check:
         default: false
         type: boolean
@@ -84,11 +76,8 @@ jobs:
 
       - if: ${{ steps.detect.outputs.target-branch != '' }}
         run: |
-          git config --global user.email "$EMAIL"
-          git config --global user.name "$NAME"
-        env:
-          EMAIL: ${{ inputs.git-user-email }}
-          NAME: ${{ inputs.git-user-name }}
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - if: ${{ steps.detect.outputs.target-branch != '' }}
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
