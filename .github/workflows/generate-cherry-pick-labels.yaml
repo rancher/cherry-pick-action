@@ -38,7 +38,7 @@ jobs:
               --force
             gh -R "$REPO" label create cherry-pick-done/$branch \
               --description "Mark PR as already cherry-picked for branch $branch" \
-              --color "$DONE_COLOR" \
+              --color "$COLOR_DONE" \
               --force
           done
         env:
