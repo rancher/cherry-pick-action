@@ -87,6 +87,11 @@ jobs:
           fetch-depth: 0
           path: target
 
+      # Github Actions don't support running composite actions from a reusable
+      # workflow in the same repository.
+      # The workaround is to clone the repository and run it. This does require
+      # the ref to be set properly by the caller (which really sucks)
+      # https://github.com/orgs/community/discussions/123261
       - if: ${{ steps.detect.outputs.target-branch != '' }}
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
