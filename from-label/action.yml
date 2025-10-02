@@ -1,39 +1,34 @@
-name: Cherry-pick a PR using labels
-
-on:
-  workflow_call:
-    inputs:
-      workflow-ref:
-        description: "The version of this repo to use the composite action. Should match the version of the call to this reusable workflow."
-        required: true
-        type: string
-      label-added:
-        description: "Create the labels in this repository"
-        required: true
-        type: string
-      all-labels-json:
-        description: "List of all labels for the PR"
-        required: true
-        type: string
-      pr-number:
-        description: ""
-        required: true
-        type: string
-      skip-membership-check:
-        default: false
-        type: boolean
-    secrets:
-      token:
-        required: true
-
-jobs:
-  cherry-pick-pr:
-    runs-on: ubuntu-latest
-    steps:
+name: 'Backport PR'
+description: 'Cherry-picks a PR to a target branch based on labels'
+inputs:
+  token:
+    description: "A Github token"
+    required: true
+    type: string
+  label-added:
+    description: "The label that was added to the PR"
+    required: true
+    type: string
+  all-labels-json:
+    description: "List of all labels for the PR"
+    required: true
+    type: string
+  pull-request:
+    description: "The PR number (eg: 123)"
+    required: true
+  is-draft:
+    default: false
+    type: boolean
+  skip-membership-check:
+    default: false
+    type: boolean
+runs:
+  using: "composite"
+  steps:
       - name: Check org membership
         id: membership
         env:
-          GH_TOKEN: ${{ secrets.token }}
+          GH_TOKEN: ${{ inputs.token }}
           SKIP: ${{ inputs.skip-membership-check }}
         run: |
           if [ "$SKIP" = "true" ]; then
@@ -47,6 +42,7 @@ jobs:
                 echo "is_member=false" >> $GITHUB_OUTPUT
             fi
           fi
+        shell: bash
 
       - if: ${{ steps.membership.outputs.is_member == 'true' }}
         id: detect
@@ -73,53 +69,36 @@ jobs:
         env:
           CHERRY_PICK_LABEL: ${{ inputs.label-added }}
           LABELS: ${{ inputs.all-labels-json }}
-
-      - if: ${{ steps.detect.outputs.target-branch != '' }}
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        shell: bash
 
       - if: ${{ steps.detect.outputs.target-branch != '' }}
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
-          token: ${{ secrets.token }}
+          token: ${{ inputs.token }}
           persist-credentials: true
           fetch-depth: 0
-          path: target
-
-      # Github Actions don't support running composite actions from a reusable
-      # workflow in the same repository.
-      # The workaround is to clone the repository and run it. This does require
-      # the ref to be set properly by the caller (which really sucks)
-      # https://github.com/orgs/community/discussions/123261
-      - if: ${{ steps.detect.outputs.target-branch != '' }}
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-        with:
-          repository: "tomleb/rancher-cherry-pick-action"
-          ref: "${{ inputs.workflow-ref }}"
-          path: cherry-pick-action
 
       - if: ${{ steps.detect.outputs.target-branch != '' }}
-        uses: ./cherry-pick-action/.github/actions/backport
-        id: backport
-        with:
-          pull-request: ${{ inputs.pr-number }}
-          target-branch: ${{ steps.detect.outputs.target-branch }}
-          repository: ${{ github.repository }}
-          is-draft: false
-          target-path: target
+        id: run
+        run: |
+          ${{ github.action_path }}/backport.sh "$PULL_REQUEST" "$TARGET_BRANCH" "$REPO"
         env:
-          GH_TOKEN: ${{ secrets.token }}
+          PULL_REQUEST: ${{ inputs.pull-request }}
+          TARGET_BRANCH: ${{ steps.detect.outputs.target-branch }}
+          REPO: ${{ github.repository }}
+          IS_DRAFT: ${{ inputs.is-draft }}
+          GH_TOKEN: ${{ inputs.token }}
+        shell: bash
 
       - if: ${{ steps.detect.outputs.target-branch != '' }}
         run: |
-          cd target
           gh pr edit $PR_NUMBER -R "$REPO" --add-label "cherry-pick-done/$TARGET"
           gh pr comment $PR_NUMBER -R "$REPO" --body "Cherry-pick requested from @$GITHUB_ACTOR. Created the following cherry-pick PR: $BACKPORT_PR_URL. See run for more details at: $RUN_URL"
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          BACKPORT_PR_URL: ${{ steps.backport.outputs.pr-url }}
+          BACKPORT_PR_URL: ${{ steps.run.outputs.pr-url }}
           TARGET: ${{ steps.detect.outputs.target-branch }}
-          GH_TOKEN: ${{ secrets.token }}
-          PR_NUMBER: ${{ inputs.pr-number }}
+          GH_TOKEN: ${{ inputs.token }}
+          PR_NUMBER: ${{ inputs.pull-request }}
           REPO: ${{ github.repository }}
+        shell: bash
