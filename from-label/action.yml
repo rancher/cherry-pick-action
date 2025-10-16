@@ -1,0 +1,104 @@
+name: 'Backport PR'
+description: 'Cherry-picks a PR to a target branch based on labels'
+inputs:
+  token:
+    description: "A Github token"
+    required: true
+    type: string
+  label-added:
+    description: "The label that was added to the PR"
+    required: true
+    type: string
+  all-labels-json:
+    description: "List of all labels for the PR"
+    required: true
+    type: string
+  pull-request:
+    description: "The PR number (eg: 123)"
+    required: true
+  is-draft:
+    default: false
+    type: boolean
+  skip-membership-check:
+    default: false
+    type: boolean
+runs:
+  using: "composite"
+  steps:
+      - name: Check org membership
+        id: membership
+        env:
+          GH_TOKEN: ${{ inputs.token }}
+          SKIP: ${{ inputs.skip-membership-check }}
+        run: |
+          if [ "$SKIP" = "true" ]; then
+            echo "is_member=true" >> $GITHUB_OUTPUT
+          else
+            if gh api orgs/${GITHUB_REPOSITORY_OWNER}/members --paginate | jq -e --arg GITHUB_ACTOR "$GITHUB_ACTOR" '.[] | select(.login == $GITHUB_ACTOR)' > /dev/null; then
+                echo "${GITHUB_ACTOR} is a member"
+                echo "is_member=true" >> $GITHUB_OUTPUT
+            else
+                echo "${GITHUB_ACTOR} is not a member" >> $GITHUB_STEP_SUMMARY
+                echo "is_member=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+        shell: bash
+
+      - if: ${{ steps.membership.outputs.is_member == 'true' }}
+        id: detect
+        run: |
+          has_label() {
+            labels=$(printf '%s' "$LABELS" | jq -r '.[]')
+            for l in $labels; do
+              if [ "$l" = "$1" ]; then
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          target="$(echo "$CHERRY_PICK_LABEL" | sed 's|cherry-pick/||')"
+          if has_label "cherry-pick-done/$target"; then
+            echo "Skipping $label ($target) because already cherry-picked"
+            echo "target-branch=" >> $GITHUB_OUTPUT
+            return 0
+          fi
+
+          echo "Need to create cherry-pick for $label ($target)"
+          echo "target-branch=$target" >> $GITHUB_OUTPUT
+        env:
+          CHERRY_PICK_LABEL: ${{ inputs.label-added }}
+          LABELS: ${{ inputs.all-labels-json }}
+        shell: bash
+
+      - if: ${{ steps.detect.outputs.target-branch != '' }}
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          token: ${{ inputs.token }}
+          persist-credentials: true
+          fetch-depth: 0
+
+      - if: ${{ steps.detect.outputs.target-branch != '' }}
+        id: run
+        run: |
+          ${{ github.action_path }}/backport.sh "$PULL_REQUEST" "$TARGET_BRANCH" "$REPO"
+        env:
+          PULL_REQUEST: ${{ inputs.pull-request }}
+          TARGET_BRANCH: ${{ steps.detect.outputs.target-branch }}
+          REPO: ${{ github.repository }}
+          IS_DRAFT: ${{ inputs.is-draft }}
+          GH_TOKEN: ${{ inputs.token }}
+        shell: bash
+
+      - if: ${{ steps.detect.outputs.target-branch != '' }}
+        run: |
+          gh pr edit $PR_NUMBER -R "$REPO" --add-label "cherry-pick-done/$TARGET"
+          gh pr comment $PR_NUMBER -R "$REPO" --body "Cherry-pick requested from @$GITHUB_ACTOR. Created the following cherry-pick PR: $BACKPORT_PR_URL. See run for more details at: $RUN_URL"
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BACKPORT_PR_URL: ${{ steps.run.outputs.pr-url }}
+          TARGET: ${{ steps.detect.outputs.target-branch }}
+          GH_TOKEN: ${{ inputs.token }}
+          PR_NUMBER: ${{ inputs.pull-request }}
+          REPO: ${{ github.repository }}
+        shell: bash
