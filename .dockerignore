@@ -1,0 +1,40 @@
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# GitHub workflows and configs
+.github/
+
+# Documentation
+README.md
+TODO.md
+docs/
+*.md
+
+# Test files and artifacts
+*_test.go
+*.test
+coverage.out
+coverage.html
+coverage/
+
+# Build artifacts
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+tmp/
+temp/

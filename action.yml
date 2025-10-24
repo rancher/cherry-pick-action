@@ -1,0 +1,94 @@
+name: 'Rancher Cherry-Pick Action'
+description: 'Automates backports by creating cherry-pick pull requests for labeled release branches'
+author: 'Rancher'
+
+branding:
+  icon: 'git-branch'
+  color: 'blue'
+
+inputs:
+  github_token:
+    description: 'GitHub token with contents:write and pull-requests:write permissions. Defaults to the workflow token.'
+    required: false
+    default: ${{ github.token }}
+
+  label_prefix:
+    description: 'Prefix for cherry-pick labels (e.g., "cherry-pick/" matches "cherry-pick/release-v2.8")'
+    required: false
+    default: 'cherry-pick/'
+
+  dry_run:
+    description: 'If true, skip all git pushes and PR creation (useful for testing)'
+    required: false
+    default: 'false'
+
+  verbose:
+    description: 'Enable verbose logging (overrides log_level to debug)'
+    required: false
+    default: 'false'
+
+  log_level:
+    description: 'Logging level: debug, info, warn, error'
+    required: false
+    default: 'info'
+
+  log_format:
+    description: 'Log output format: text or json'
+    required: false
+    default: 'text'
+
+  conflict_strategy:
+    description: 'Strategy when cherry-pick conflicts occur: "fail" (skip and comment) or "placeholder-pr" (create PR with empty commit)'
+    required: false
+    default: 'fail'
+
+  target_branches:
+    description: 'Comma or newline-separated list of branches to cherry-pick to (overrides label-based detection)'
+    required: false
+    default: ''
+
+  github_base_url:
+    description: 'GitHub Enterprise API base URL (e.g., https://github.example.com/api/v3). Leave empty for github.com.'
+    required: false
+    default: ''
+
+  github_upload_url:
+    description: 'GitHub Enterprise upload URL (e.g., https://github.example.com/api/uploads). Leave empty for github.com.'
+    required: false
+    default: ''
+
+  git_user_name:
+    description: 'Git committer name for placeholder commits. Defaults to "Rancher Cherry-Pick Bot".'
+    required: false
+    default: ''
+
+  git_user_email:
+    description: 'Git committer email for placeholder commits. Defaults to "no-reply@rancher.com".'
+    required: false
+    default: ''
+
+  git_signing_key:
+    description: 'GPG private key (base64-encoded or ASCII-armored) for signing commits. Leave empty to disable signing.'
+    required: false
+    default: ''
+
+  git_signing_passphrase:
+    description: 'Passphrase to unlock the GPG signing key (if required)'
+    required: false
+    default: ''
+
+  require_org_membership:
+    description: 'If true, skip execution when GITHUB_ACTOR is not a member of the repository owner organization'
+    required: false
+    default: 'false'
+
+outputs:
+  created_prs:
+    description: 'JSON array of created cherry-pick pull request URLs'
+  
+  skipped_targets:
+    description: 'JSON array of target branches that were skipped with reasons'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'

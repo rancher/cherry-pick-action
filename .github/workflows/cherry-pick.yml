@@ -1,0 +1,88 @@
+name: Cherry-Pick Automation
+
+on:
+  workflow_call:
+    inputs:
+      label_prefix:
+        description: 'Prefix for cherry-pick labels'
+        type: string
+        default: 'cherry-pick/'
+        required: false
+      
+      conflict_strategy:
+        description: 'Strategy when cherry-pick conflicts occur: fail or placeholder-pr'
+        type: string
+        default: 'fail'
+        required: false
+      
+      log_level:
+        description: 'Logging level: debug, info, warn, error'
+        type: string
+        default: 'info'
+        required: false
+      
+      dry_run:
+        description: 'Skip all git pushes and PR creation'
+        type: boolean
+        default: false
+        required: false
+      
+      github_base_url:
+        description: 'GitHub Enterprise API base URL (leave empty for github.com)'
+        type: string
+        default: ''
+        required: false
+      
+      github_upload_url:
+        description: 'GitHub Enterprise upload URL (leave empty for github.com)'
+        type: string
+        default: ''
+        required: false
+      
+      git_signing_key:
+        description: 'GPG private key for signing commits (base64-encoded or ASCII-armored)'
+        type: string
+        default: ''
+        required: false
+    
+    secrets:
+      token:
+        description: 'GitHub token with contents:write and pull-requests:write permissions'
+        required: false
+      
+      git_signing_passphrase:
+        description: 'Passphrase to unlock the GPG signing key'
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  cherry-pick:
+    name: Cherry-Pick
+    runs-on: ubuntu-latest
+    
+    # Prevent concurrent runs for the same PR
+    concurrency:
+      group: cherry-pick-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    
+    # Only run on pull_request events (labeled or closed)
+    if: |
+      github.event_name == 'pull_request' || 
+      github.event_name == 'pull_request_target'
+    
+    steps:
+      - name: Run cherry-pick action
+        uses: rancher/cherry-pick-action@v0.1.0
+        with:
+          github_token: ${{ secrets.token || secrets.GITHUB_TOKEN }}
+          label_prefix: ${{ inputs.label_prefix }}
+          conflict_strategy: ${{ inputs.conflict_strategy }}
+          log_level: ${{ inputs.log_level }}
+          dry_run: ${{ inputs.dry_run }}
+          github_base_url: ${{ inputs.github_base_url }}
+          github_upload_url: ${{ inputs.github_upload_url }}
+          git_signing_key: ${{ inputs.git_signing_key }}
+          git_signing_passphrase: ${{ secrets.git_signing_passphrase }}
