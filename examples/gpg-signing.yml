@@ -1,0 +1,107 @@
+# GPG Commit Signing Workflow
+#
+# This example shows how to configure GPG signing for cherry-pick commits.
+# Useful for maintaining commit signature verification in cherry-picked branches.
+
+name: Cherry-Pick with GPG Signing
+
+on:
+  pull_request:
+    types: [closed, labeled]
+  pull_request_target:
+    types: [closed, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  cherry-pick:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    steps:
+      - name: Cherry-pick with GPG signing
+        uses: rancher/cherry-pick-action@v1
+        with:
+          github_token: ${{ secrets.GH_TOKEN }}
+          
+          # GPG signing configuration
+          git_signing_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          git_signing_passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          
+          # Git identity (should match GPG key identity)
+          git_user_name: "Cherry-Pick Bot"
+          git_user_email: "bot@example.com"
+
+# Setup instructions:
+#
+# 1. Generate a GPG key (if you don't have one):
+#    ```bash
+#    gpg --full-generate-key
+#    # Choose RSA and RSA (default)
+#    # Key size: 4096 bits
+#    # Email: bot@example.com (match git_user_email)
+#    ```
+#
+# 2. Export the private key:
+#    ```bash
+#    # List keys to get the key ID
+#    gpg --list-secret-keys --keyid-format=long
+#    
+#    # Export private key (ASCII-armored)
+#    gpg --armor --export-secret-keys YOUR_KEY_ID > private-key.asc
+#    
+#    # Or export as base64
+#    gpg --armor --export-secret-keys YOUR_KEY_ID | base64 > private-key.b64
+#    ```
+#
+# 3. Add the key as a GitHub secret:
+#    - Repository settings → Secrets and variables → Actions
+#    - Create secret: GPG_PRIVATE_KEY
+#    - Paste the entire contents of private-key.asc (or .b64)
+#    - Include the BEGIN/END lines
+#
+# 4. Add passphrase as a secret (if your key is encrypted):
+#    - Create secret: GPG_PASSPHRASE
+#    - Paste your GPG key passphrase
+#    - Leave empty if key has no passphrase
+#
+# 5. Configure GitHub to verify signatures:
+#    - Export public key: gpg --armor --export YOUR_KEY_ID > public-key.asc
+#    - Go to GitHub settings → SSH and GPG keys
+#    - Add GPG key and paste public-key.asc contents
+#
+# 6. IMPORTANT: Match email addresses:
+#    - GPG key email must match git_user_email
+#    - Otherwise GitHub won't verify signatures
+
+# Key format support:
+# - ASCII-armored (-----BEGIN PGP PRIVATE KEY BLOCK-----)
+# - Base64-encoded ASCII-armored key
+# - Both formats work with the action
+
+# Security notes:
+# - Private keys in secrets are encrypted at rest
+# - Keys are only decrypted during workflow execution
+# - Keys are automatically cleaned up after run
+# - Consider using key-specific to this bot (not personal keys)
+# - Rotate keys periodically
+# - Use strong passphrases
+
+# Example GPG signed commit appearance:
+# ```
+# commit abc123def456... (HEAD -> cherry-pick/release-v2.8/pr-42)
+# Author: Cherry-Pick Bot <bot@example.com>
+# Date:   Mon Oct 22 10:00:00 2025 -0700
+# GPG signature: ✓ Verified
+#
+#     [cherry-pick] Fix critical bug (#42)
+#     
+#     Cherry-picked from #42
+# ```
+
+# Troubleshooting:
+# - "gpg: decryption failed" - Check passphrase is correct
+# - "gpg: no valid OpenPGP data found" - Verify key format
+# - "gpg: secret key not available" - Ensure full private key exported
+# - Signatures not verified on GitHub - Check email addresses match

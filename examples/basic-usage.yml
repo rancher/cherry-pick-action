@@ -1,0 +1,38 @@
+# Basic Cherry-Pick Workflow
+#
+# This is the simplest way to set up automated cherry-picks.
+# The action will automatically create backport PRs when you add
+# labels like "cherry-pick/release-v2.8" to merged pull requests.
+
+name: Cherry-Pick Automation
+
+on:
+  pull_request:
+    types: [closed, labeled]
+  pull_request_target:
+    types: [closed, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  cherry-pick:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    steps:
+      - name: Cherry-pick to release branches
+        uses: rancher/cherry-pick-action@v1
+        with:
+          github_token: ${{ secrets.GH_TOKEN }}
+
+# Usage:
+# 1. Merge a PR to your main branch
+# 2. Add a label like "cherry-pick/release-v2.8" to the merged PR
+# 3. The action automatically creates a cherry-pick PR on release-v2.8
+#
+# Label format: cherry-pick/<branch-name>
+# Examples:
+#   - cherry-pick/release-v2.8
+#   - cherry-pick/release/v2.7
+#   - cherry-pick/stable

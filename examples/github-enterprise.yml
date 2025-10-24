@@ -1,0 +1,70 @@
+# GitHub Enterprise Cherry-Pick Workflow
+#
+# This example shows how to configure the action for GitHub Enterprise Server.
+# You'll need to provide custom API URLs for your enterprise instance.
+
+name: Cherry-Pick Automation (GitHub Enterprise)
+
+on:
+  pull_request:
+    types: [closed, labeled]
+  pull_request_target:
+    types: [closed, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  cherry-pick:
+    runs-on: self-hosted  # Use your GitHub Enterprise runners
+    if: github.event.pull_request.merged == true
+    steps:
+      - name: Cherry-pick to release branches
+        uses: rancher/cherry-pick-action@v1
+        with:
+          # Use a PAT or GitHub App token with appropriate permissions
+          github_token: ${{ secrets.GHE_TOKEN }}
+          
+          # GitHub Enterprise API endpoints
+          # Replace with your actual GitHub Enterprise URLs
+          github_base_url: https://github.example.com/api/v3
+          github_upload_url: https://github.example.com/api/uploads
+          
+          # Other configuration options work the same
+          label_prefix: "cherry-pick/"
+          conflict_strategy: "fail"
+          log_level: "info"
+
+# Setup instructions for GitHub Enterprise:
+#
+# 1. Create a Personal Access Token (PAT) or GitHub App:
+#    - For PAT: Settings → Developer settings → Personal access tokens
+#    - Required scopes: repo (full control)
+#    - For GitHub App: Create app with Contents and Pull Requests permissions
+#
+# 2. Add the token as a secret:
+#    - Repository settings → Secrets and variables → Actions
+#    - Create secret named GHE_TOKEN
+#    - Paste your token value
+#
+# 3. Configure API URLs:
+#    - github_base_url: Your GHE API base URL (usually /api/v3)
+#    - github_upload_url: Your GHE upload URL (usually /api/uploads)
+#    - Both URLs must be set together
+#
+# 4. Use self-hosted runners:
+#    - The action requires network access to your GHE instance
+#    - Configure runners on machines that can reach your GHE server
+#
+# 5. Verify connectivity:
+#    - Test with dry_run: true first
+#    - Check logs for API connection issues
+#    - Ensure firewall rules allow runner → GHE communication
+
+# Troubleshooting:
+#
+# - "unauthorized" errors: Check token permissions and expiration
+# - "bad credentials": Verify token is correctly set in secrets
+# - "parse github base url" errors: Ensure URLs include scheme (https://)
+# - Timeout errors: Check network connectivity and firewall rules

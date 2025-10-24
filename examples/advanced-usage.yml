@@ -1,0 +1,84 @@
+# Advanced Cherry-Pick Workflow
+#
+# This example demonstrates all available configuration options
+# for fine-tuned control over the cherry-pick process.
+
+name: Advanced Cherry-Pick Automation
+
+on:
+  pull_request:
+    types: [closed, labeled]
+  pull_request_target:
+    types: [closed, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  cherry-pick:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    steps:
+      - name: Cherry-pick with all options
+        uses: rancher/cherry-pick-action@v1
+        with:
+          # GitHub token (required)
+          github_token: ${{ secrets.GH_TOKEN }}
+          
+          # Label prefix for cherry-pick detection
+          # Default: "cherry-pick/"
+          label_prefix: "backport/"
+          
+          # Conflict handling strategy
+          # Options: "fail" (default) or "placeholder-pr"
+          # - fail: Skip the target and add a comment
+          # - placeholder-pr: Create a PR with an empty commit for manual resolution
+          conflict_strategy: "placeholder-pr"
+          
+          # Optional: Explicitly specify target branches (overrides label detection)
+          # Useful for automated cherry-picks without labels
+          target_branches: |
+            release-v2.8
+            release-v2.7
+            release-v2.6
+          
+          # Dry run mode - test without creating actual PRs or pushing branches
+          # Default: false
+          dry_run: false
+          
+          # Logging configuration
+          log_level: "info"     # Options: debug, info, warn, error
+          log_format: "text"    # Options: text, json
+          verbose: false        # Shortcut to set log_level=debug
+          
+          # Git user configuration for commits
+          git_user_name: "Cherry-Pick Bot"
+          git_user_email: "bot@example.com"
+          
+          # Organization membership check (optional security feature)
+          # When true, skips execution if GITHUB_ACTOR is not an org member
+          # Useful for preventing cherry-picks from forked PRs
+          # Default: false
+          require_org_membership: false
+
+# Advanced usage scenarios:
+
+# 1. Testing changes safely:
+#    Set dry_run: true to see what would happen without making changes
+#
+# 2. Handling conflicts gracefully:
+#    Set conflict_strategy: "placeholder-pr" to create PRs even when conflicts occur
+#    The PR will have an empty commit and you can resolve conflicts manually
+#
+# 3. Automated cherry-picks without labels:
+#    Use target_branches to specify branches explicitly
+#    Useful for scheduled workflows or manual triggers
+#
+# 4. Debugging:
+#    Set verbose: true or log_level: "debug" for detailed logs
+#    Set log_format: "json" for machine-readable logs
+#
+# 5. Security:
+#    Set require_org_membership: true to only allow org members to trigger cherry-picks
+#    Prevents abuse from external contributors or forked PRs
